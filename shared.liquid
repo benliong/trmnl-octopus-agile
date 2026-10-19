@@ -4,7 +4,8 @@
   Polling URL:
     https://api.octopus.energy/v1/products/{{ product }}/electricity-tariffs/E-1R-{{ product }}-{{ region }}/standard-unit-rates/?page_size=100&period_from={{ "now" | date: "%Y-%m-%dT%H:%M:00%z" | url_encode }}
   period_from=now makes the data change at :00/:30, so TRMNL redraws when the current half-hour changes.
-  Form fields: region (A–P), product (Agile product code), flexible_price (optional comparison line, p/kWh inc VAT).
+  Form fields: region and product feed the polling URL above; flexible_price (optional comparison line, p/kWh inc VAT)
+  is read in the markup as trmnl.plugin_settings.custom_fields_values.flexible_price (bare field names only work in the URL).
   1-bit friendly: black, white and hatching only.
 -->
 <style>
@@ -32,7 +33,7 @@
    compact, legend, tick (hours between axis labels) */
 function agileRender(rootId, untilId, opts) {
   var RATES = {{ results | json }};
-  var FLEX = parseFloat("{{ flexible_price }}");   // blank = no Flexible comparison
+  var FLEX = parseFloat("{{ trmnl.plugin_settings.custom_fields_values.flexible_price }}");   // blank = no Flexible comparison
   var HAS_FLEX = !isNaN(FLEX);
   var WINDOW = 48;   // always the next 24 hours, so bars keep the same width
   var TZ = "Europe/London", HH = 1800000;

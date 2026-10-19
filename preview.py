@@ -78,7 +78,7 @@ def main() -> None:
 
     shared = (HERE / "shared.liquid").read_text()
     shared = shared.replace("{{ results | json }}", json.dumps(results))
-    shared = shared.replace("{{ flexible_price }}", a.flex)
+    shared = shared.replace("{{ trmnl.plugin_settings.custom_fields_values.flexible_price }}", a.flex)
     assert "{{" not in shared.split("-->", 1)[1], "unfilled Liquid tag"
 
     OUT.mkdir(exist_ok=True)
