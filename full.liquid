@@ -1,0 +1,12 @@
+<div class="layout layout--col">
+  <div id="agile-full" class="agile" style="width: 100%;"></div>
+</div>
+<div class="title_bar">
+  <span class="title">Octopus Agile</span>
+  <span class="instance" id="agile-full-until"></span>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  agileRender("agile-full", "agile-full-until", { W: 780, H: 292, stats: ["now", "best", "avoid"], legend: true, tick: 3 });
+});
+</script>
