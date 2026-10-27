@@ -19,12 +19,25 @@ at exact clock times, so the screen can lag by up to the device refresh interval
 
 ## Files
 
-| File | Paste into |
+The plugin itself is in `src/`, in TRMNL's [trmnlp](https://github.com/usetrmnl/trmnlp) layout:
+
+| File | What it is |
 |---|---|
-| `shared.liquid` | Markup → **Shared** tab (`agileRender()`, used by every layout) |
-| `full.liquid`, `half_horizontal.liquid`, `half_vertical.liquid`, `quadrant.liquid` | the matching markup tabs |
-| `form_fields.yml` | Settings → **Form Fields** (region A–P, Agile product code, Flexible rate) |
+| `src/shared.liquid` | Markup → **Shared** tab (`agileRender()`, used by every layout) |
+| `src/full.liquid`, `src/half_horizontal.liquid`, `src/half_vertical.liquid`, `src/quadrant.liquid` | the matching markup tabs |
+| `src/settings.yml` | polling URL, strategy and form fields (region A–P, Agile product code, Flexible rate) |
+| `.trmnlp.yml` | config for `trmnlp serve` (local dev server); not uploaded |
 | `icon.png` (from `icon.svg`) | Settings → **Icon** (TRMNL keeps PNG uploads; the SVG didn't stick) |
+
+## Syncing with TRMNL
+
+The live plugin is connected to this repo with TRMNL's GitHub Sync:
+
+- **TRMNL → GitHub is automatic.** Saving in TRMNL's editor or settings commits `src/` here as
+  `trmnl-sync[bot]` ("Updated from TRMNL"), within ~15 s. Those files use CRLF line endings; leave them.
+- **GitHub → TRMNL is manual.** After a push that changes `src/`, TRMNL offers to import it on the
+  plugin's settings page; accept it there.
+- Saving in TRMNL overwrites the plugin's markup and settings there, so pull before editing here.
 
 Styling is TRMNL Framework classes only, no custom CSS. The stat boxes are a Framework grid that
 stacks in portrait (`portrait:grid--cols-1`), and their text grows on TRMNL X (`lg:`) and in portrait.
@@ -41,16 +54,19 @@ When the old data runs out, or a poll returns nothing, the screen says "Unable t
 This relies on TRMNL drawing the screen with the last successful poll's data, which its docs don't spell out.
 If a failed poll leaves no data, you get the "Unable to reach" message instead.
 
-## Set up from scratch (private plugin)
+## Set up
 
-Private plugins need TRMNL's Developer add-on (or a BYOD licence).
+**Easiest:** install the [Octopus Agile 24h](https://trmnl.com/recipes/octopus-agile-24h-512180) recipe
+and pick your region. Installs get updates automatically.
+
+**Your own copy (private plugin)** needs TRMNL's Developer add-on (or a BYOD licence):
 
 1. **Plugins → Private Plugin → Add new.** Strategy **Polling**, verb **GET**, polling URL:
    ```
    https://api.octopus.energy/v1/products/{{ product }}/electricity-tariffs/E-1R-{{ product }}-{{ region }}/standard-unit-rates/?page_size=100&period_from={{ "now" | date: "%Y-%m-%dT%H:%M:00%z" | url_encode }}
    ```
-2. Paste `form_fields.yml` into **Form Fields**, save, then pick your region (and Flexible rate).
-3. Paste the five `.liquid` files into their markup tabs (Shared first) and save each.
+2. Paste the `custom_fields:` list from `src/settings.yml` into **Form Fields**, save, then pick your region (and Flexible rate).
+3. Paste the five `src/*.liquid` files into their markup tabs (Shared first) and save each.
 4. **Check the data:** markup editor → **Your Variables** → `count` should be the number of
    half-hours from now to the last published one (e.g. 60 at 17:00 once tomorrow is out).
 5. Device refresh 15 min (5 with TRMNL+); add to playlist; **Force Refresh**. Within one refresh
@@ -67,6 +83,7 @@ python preview.py --no-data                         # a poll that returned nothi
 ```
 
 Run from this folder after `pip install -r requirements.txt && playwright install chromium`.
+It renders `src/` with live prices, plus the outage cases TRMNL's own preview can't show.
 Writes `screenshots/trmnl-<screen>-<layout>[-HHMM][-polledHHMM][-nodata].png` plus a 1-bit version approximating the panel.
 
 ## Limits

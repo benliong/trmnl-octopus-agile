@@ -85,7 +85,7 @@ def main() -> None:
         results = []
     print(f"{at:%a %H:%M}: {len(results)} slots, polling payload ≈ {len(json.dumps(results)) / 1024:.1f} kB")
 
-    shared = (HERE / "shared.liquid").read_text()
+    shared = (HERE / "src" / "shared.liquid").read_text()
     shared = shared.replace("{{ results | json }}", json.dumps(results))
     shared = shared.replace("{{ trmnl.plugin_settings.custom_fields_values.flexible_price }}", a.flex)
     assert "{{" not in shared.split("-->", 1)[1], "unfilled Liquid tag"
@@ -98,7 +98,7 @@ def main() -> None:
         for scr, name in [(x, y) for x in screens for y in layouts]:
             sw, sh, scls = SCREENS[scr]
             mashup, n = LAYOUTS[name]
-            view = f'<div class="view view--{name}">{shared}{(HERE / f"{name}.liquid").read_text()}</div>'
+            view = f'<div class="view view--{name}">{shared}{(HERE / "src" / f"{name}.liquid").read_text()}</div>'
             blank = f'<div class="view view--{name}"><div class="layout"></div></div>'
             body = view if mashup is None else f'<div class="{mashup}">{view}{blank * (n - 1)}</div>'
             pg = b.new_page(viewport={"width": sw, "height": sh}, timezone_id="Europe/London")

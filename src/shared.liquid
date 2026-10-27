@@ -1,6 +1,7 @@
 <!--
   Octopus Agile — next 24 hours (TRMNL recipe). Shared tab: the renderer every layout calls.
   Prices come from Octopus Energy's public API; no account needed.
+  Source: https://github.com/benliong/trmnl-octopus-agile (src/ is synced with TRMNL).
   Polling URL:
     https://api.octopus.energy/v1/products/{{ product }}/electricity-tariffs/E-1R-{{ product }}-{{ region }}/standard-unit-rates/?page_size=100&period_from={{ "now" | date: "%Y-%m-%dT%H:%M:00%z" | url_encode }}
   period_from=now makes the data change at :00/:30, so TRMNL redraws when the current half-hour changes.
