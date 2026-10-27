@@ -35,8 +35,9 @@ The live plugin is connected to this repo with TRMNL's GitHub Sync:
 
 - **TRMNL → GitHub is automatic.** Saving in TRMNL's editor or settings commits `src/` here as
   `trmnl-sync[bot]` ("Updated from TRMNL"), within ~15 s. Those files use CRLF line endings; leave them.
-- **GitHub → TRMNL is manual.** After a push that changes `src/`, TRMNL offers to import it on the
-  plugin's settings page; accept it there.
+- **GitHub → TRMNL is manual.** After a push that changes `src/`, an import offer appears in the
+  **GitHub section of the plugin's settings page** (below Featured Image); accept it there.
+  Pushes that only touch files outside `src/` (README, `preview.py`) don't need importing.
 - Saving in TRMNL overwrites the plugin's markup and settings there, so pull before editing here.
 
 Styling is TRMNL Framework classes only, no custom CSS. The stat boxes are a Framework grid that
