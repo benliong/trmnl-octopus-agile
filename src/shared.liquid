@@ -1,0 +1,192 @@
+<!--
+  Octopus Agile — next 24 hours (TRMNL recipe). Shared tab: the renderer every layout calls.
+  Prices come from Octopus Energy's public API; no account needed.
+  Polling URL:
+    https://api.octopus.energy/v1/products/{{ product }}/electricity-tariffs/E-1R-{{ product }}-{{ region }}/standard-unit-rates/?page_size=100&period_from={{ "now" | date: "%Y-%m-%dT%H:%M:00%z" | url_encode }}
+  period_from=now makes the data change at :00/:30, so TRMNL redraws when the current half-hour changes.
+  Form fields: region and product feed the polling URL above; flexible_price (optional comparison line, p/kWh inc VAT)
+  is read in the markup as trmnl.plugin_settings.custom_fields_values.flexible_price (bare field names only work in the URL).
+  Styling is TRMNL Framework classes only (no <style>): stat boxes stack in portrait and grow on larger screens.
+  The chart is an SVG whose text borrows the Framework's font and size. 1-bit friendly: black, white and hatching only.
+  If Octopus can't be reached, published prices don't change, so the last fetched ones are still drawn (marked as such).
+-->
+<script>
+/* agileRender(rootId, untilId, opts)
+   opts: W, H (chart size on an 800×480 TRMNL OG; the chart fills whatever height is left on larger screens),
+   stats (subset of "now","best","avoid"), cols (Framework grid classes for the stat boxes),
+   compact, legend, tick (hours between axis labels) */
+function agileRender(rootId, untilId, opts) {
+  var RATES = [{{ results | json }}][0] || [];   // safe if a failed poll leaves results empty
+  var FLEX = parseFloat("{{ trmnl.plugin_settings.custom_fields_values.flexible_price }}");   // blank = no Flexible comparison
+  var HAS_FLEX = !isNaN(FLEX);
+  var WINDOW = 48;   // always the next 24 hours, so bars keep the same width
+  var TZ = "Europe/London", HH = 1800000;
+  var root = document.getElementById(rootId), untilEl = document.getElementById(untilId);
+
+  // Framework text classes. Compact layouts stay small; full grows on TRMNL X (lg) and in portrait.
+  var T = opts.compact
+    ? { k: "label label--small lg:label--large", v: "value value--xsmall value--tnums lg:value--small", s: "description lg:description--large" }
+    : { k: "label lg:label--large",
+        v: "value value--small value--tnums lg:value portrait:value--base lg:portrait:value--large",
+        s: "description description--large lg:description--xlarge" };
+
+  var fmt = function (d, o) { return new Intl.DateTimeFormat("en-GB", Object.assign({ timeZone: TZ }, o)).format(d); };
+  var hm = function (d) { return fmt(d, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }); };
+  var dayKey = function (d) { return fmt(d, { year: "numeric", month: "2-digit", day: "2-digit" }); };
+  var message = function (head, body) {
+    root.innerHTML = '<div class="flex flex--col flex--center gap--small text--center">' +
+      '<span class="' + T.v + '">' + head + '</span><span class="' + T.s + '">' + body + '</span></div>';
+  };
+
+  var now = new Date();
+  var start = new Date(Math.floor(now.getTime() / HH) * HH);
+  var drawn = "drawn " + hm(now);
+  if (!RATES.length) {
+    message("Unable to reach Octopus servers",
+            "TRMNL will keep retrying. If this lasts, check the Region and Agile product code in the plugin settings.");
+    if (untilEl) untilEl.textContent = drawn;
+    return;
+  }
+
+  // The first rate is the half-hour this data was fetched in (period_from=now). If it's an hour or more behind,
+  // the latest polls failed and we're drawing earlier prices, which is fine: published prices never change.
+  // (Half an hour of slack: TRMNL can poll just before :00/:30 and render just after.)
+  var fetched = new Date(Math.min.apply(null, RATES.map(function (r) { return new Date(r.valid_from).getTime(); })));
+  var stale = start.getTime() - fetched.getTime() >= 2 * HH;
+
+  var byTime = {};
+  RATES.forEach(function (r) { byTime[new Date(r.valid_from).getTime()] = r.value_inc_vat; });
+  var slots = [];
+  for (var k = 0; k < WINDOW; k++) {
+    var t = new Date(start.getTime() + k * HH), p = byTime[t.getTime()];
+    slots.push({ from: t, to: new Date(t.getTime() + HH), p: p === undefined ? null : p });
+  }
+  var priced = slots.filter(function (s) { return s.p !== null; });
+  var nPriced = 0; while (nPriced < WINDOW && slots[nPriced].p !== null) nPriced++;
+  var last = new Date(Math.max.apply(null, RATES.map(function (r) { return new Date(r.valid_to).getTime(); })));
+  if (nPriced < 4) {
+    if (stale) message("Unable to reach Octopus servers", "The last prices fetched (at " + hm(fetched) + ") ran out at " + hm(last) + ".");
+    else message("Waiting for Agile prices", "Octopus publishes the next day around 4pm.");
+    if (untilEl) untilEl.textContent = drawn;
+    return;
+  }
+
+  var sorted = priced.map(function (s) { return s.p; }).sort(function (a, b) { return a - b; });
+  var cheapCut = sorted[Math.max(0, Math.ceil(sorted.length / 3) - 1)];
+  var best = null, worst = null;
+  for (var i = 0; i + 3 < nPriced; i++) {
+    var avg = (slots[i].p + slots[i + 1].p + slots[i + 2].p + slots[i + 3].p) / 4;
+    if (!best || avg < best.avg) best = { i: i, avg: avg };
+    if (!worst || avg > worst.avg) worst = { i: i, avg: avg };
+  }
+  var span = function (w) { return hm(slots[w.i].from) + "–" + hm(slots[w.i + 3].to); };
+  var when = function (d) { return dayKey(d) === dayKey(now) ? "today" : "tomorrow"; };
+  if (untilEl) untilEl.textContent = stale
+    ? (opts.compact ? "offline since " + hm(fetched) + " · " + hm(now)
+                    : "Octopus offline since " + hm(fetched) + " · " + drawn)
+    : (opts.compact ? "to " + hm(last) + " " + fmt(new Date(last.getTime() - 1), { weekday: "short" }) + " · " + hm(now)
+                    : "Prices to " + hm(last) + " " + when(new Date(last.getTime() - 1)) + " · " + drawn);
+
+  var stat = function (cls, k, v, s) {
+    return '<div class="' + cls + ' rounded--medium p--2 flex flex--col">' +
+      '<span class="' + T.k + '">' + k + '</span><span class="' + T.v + '">' + v + '</span><span class="' + T.s + '">' + s + '</span></div>';
+  };
+  var cur = slots[0];
+  var box = {
+    now: stat("inverse", "Now " + hm(cur.from) + "–" + hm(cur.to), cur.p.toFixed(1) + "p",
+              HAS_FLEX ? (cur.p <= FLEX ? "below" : "above") + " Flexible " + FLEX.toFixed(1) + "p" : "p/kWh inc VAT"),
+    best: stat("outline", "Best 2 hours", span(best), when(slots[best.i].from) + " · avg " + best.avg.toFixed(1) + "p"),
+    avoid: stat("outline", "Avoid", span(worst), when(slots[worst.i].from) + " · avg " + worst.avg.toFixed(1) + "p")
+  };
+
+  // Chart text matches the Framework's label font and size on this device (pixel font on OG, Inter on X).
+  root.className = "w--full flex flex--col " + (opts.compact ? "gap--xsmall" : "gap--small");
+  root.innerHTML = '<div class="grid ' + opts.cols + ' ' + (opts.compact ? "gap--xsmall" : "gap--small") + '">' +
+    opts.stats.map(function (s) { return box[s]; }).join("") + '</div><span class="' + T.k + '">p/kWh</span>';
+  var probe = root.lastChild, pcs = getComputedStyle(probe);
+  var fs = Math.round(parseFloat(pcs.fontSize)), family = pcs.fontFamily.replace(/"/g, "&quot;");
+  root.removeChild(probe);
+
+  var W = Math.floor(root.clientWidth || opts.W);
+  var sc = Math.max(0.8, Math.min(2.2, W / opts.W));   // stroke and marker scale from the OG design
+  var px = function (v) { return Math.round(v * sc); };
+  var swatch = function (inner) {
+    return '<svg width="' + Math.round(fs * 1.25) + '" height="' + fs + '" viewBox="0 0 20 16">' + inner + '</svg>';
+  };
+  var hatchId = rootId + "-hatch";
+  if (opts.legend) root.insertAdjacentHTML("beforeend",
+    '<div class="flex flex--row flex--wrap flex--center gap--medium">' +
+      '<span class="' + T.k + ' flex flex--center-y no-shrink gap--xsmall">' + swatch('<rect x="1" y="1" width="18" height="14" fill="#000" stroke="#000" stroke-width="2"/>') + 'cheapest third</span>' +
+      '<span class="' + T.k + ' flex flex--center-y no-shrink gap--xsmall">' + swatch('<rect x="1" y="1" width="18" height="14" fill="url(#' + hatchId + ')" stroke="#000" stroke-width="2"/>') + 'avoid 2h</span>' +
+      (HAS_FLEX ? '<span class="' + T.k + ' flex flex--center-y no-shrink gap--xsmall">' + swatch('<line x1="0" y1="8" x2="20" y2="8" stroke="#000" stroke-width="2" stroke-dasharray="5 3"/>') +
+                  'Flexible ' + FLEX.toFixed(1) + 'p</span>' : '') +
+    '</div>');
+
+  // The chart takes whatever height the stats and legend leave in the layout.
+  var area = root.closest(".layout") || root.parentElement;
+  var rowGap = parseFloat(getComputedStyle(root).rowGap) || 0;
+  var used = 0; for (var c = 0; c < root.children.length; c++) used += root.children[c].offsetHeight + rowGap;
+  var avail = area.clientHeight - used - 2;
+  var H = avail > opts.H * 0.6 ? Math.floor(avail) : Math.round(opts.H * sc);
+
+  // ---- chart
+  var L = Math.round(fs * 2.3), R = px(6), TOP = Math.round(fs * 1.6), XB = Math.round(fs * 2.6);
+  var ph = H - TOP - XB, pw = W - L - R, bw = pw / WINDOW;
+  var ps = priced.map(function (s) { return s.p; });
+  var lo = Math.min(0, Math.min.apply(null, ps)), hi = Math.max(HAS_FLEX ? FLEX : 0, Math.max.apply(null, ps));
+  var step = hi - lo > 45 ? 20 : 10;
+  if (opts.compact && hi - lo > 30) step = 20;
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  var y = function (v) { return TOP + ph - (v - lo) / (hi - lo) * ph; };
+  var g = [];
+  g.push('<defs><pattern id="' + hatchId + '" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+         '<rect width="6" height="6" fill="#fff"/><rect width="3" height="6" fill="#000"/></pattern></defs>');
+  for (var tk = lo; tk <= hi; tk += step) {
+    g.push('<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(tk) + '" y2="' + y(tk) + '" stroke="#000" stroke-width="' +
+           (tk === 0 ? 2 : 1) + '"' + (tk === 0 ? '' : ' stroke-dasharray="1 4"') + '/>');
+    g.push('<text x="' + (L - 4) + '" y="' + (y(tk) + fs * 0.35) + '" text-anchor="end">' + tk + '</text>');
+  }
+  var tick = opts.tick; while (tick < 12 && tick * 2 * bw < fs * 3.4) tick *= 2;   // keep HH:MM labels apart
+  var gap = bw > 6 ? 2 : 1;
+  slots.forEach(function (s, k) {
+    var x = L + k * bw;
+    if (s.p !== null) {
+      var inWorst = worst && k >= worst.i && k < worst.i + 4;
+      var fill = s.p <= cheapCut ? "#000" : inWorst ? "url(#" + hatchId + ")" : "#fff";
+      g.push('<rect x="' + (x + gap / 2) + '" y="' + y(Math.max(s.p, 0)) + '" width="' + Math.max(bw - gap, 1) + '" height="' +
+             Math.max(Math.abs(y(s.p) - y(0)), 1) + '" fill="' + fill + '" stroke="#000" stroke-width="' + (bw > 6 ? 1.5 : 1) + '"/>');
+    }
+    if (k > 1 && x + fs * 1.5 < W && s.from.getUTCMinutes() === 0 && +hm(s.from).slice(0, 2) % tick === 0) {
+      g.push('<line x1="' + x + '" x2="' + x + '" y1="' + y(lo) + '" y2="' + (y(lo) + 5) + '" stroke="#000" stroke-width="1.5"/>');
+      g.push('<text x="' + x + '" y="' + (y(lo) + fs + 5) + '" text-anchor="middle">' + hm(s.from) + '</text>');
+    }
+    if (k > 0 && hm(s.from) === "00:00") {
+      g.push('<line x1="' + x + '" x2="' + x + '" y1="' + TOP + '" y2="' + y(lo) + '" stroke="#000" stroke-width="1.5" stroke-dasharray="4 3"/>');
+      g.push('<text x="' + (x + 4) + '" y="' + (TOP + fs * 0.8) + '">' + fmt(s.from, { weekday: "short" }) + '</text>');
+    }
+  });
+  var nx = L + bw / 2, ay = y(lo) + fs * 2.1;
+  g.push('<path d="M' + (nx - px(6)) + ' ' + ay + ' L' + nx + ' ' + (ay - px(10)) + ' L' + (nx + px(6)) + ' ' + ay + ' Z" fill="#000"/>');
+  g.push('<text x="' + (nx + px(9)) + '" y="' + (ay + px(3)) + '" font-weight="700">now</text>');
+  var bx0 = L + best.i * bw + 1, bx1 = L + (best.i + 4) * bw - 1;
+  var by = y(Math.max(slots[best.i].p, slots[best.i + 1].p, slots[best.i + 2].p, slots[best.i + 3].p, 0)) - px(7);
+  g.push('<path d="M' + bx0 + ' ' + (by + px(5)) + ' V' + by + ' H' + bx1 + ' V' + (by + px(5)) + '" fill="none" stroke="#000" stroke-width="2"/>');
+  var bmid = Math.max(L + fs * 2.2, Math.min(W - R - fs * 2.2, (bx0 + bx1) / 2));
+  g.push('<text x="' + bmid + '" y="' + (by - px(4)) + '" text-anchor="middle" font-weight="700">best 2h</text>');
+  if (nPriced < WINDOW) {
+    var ux = L + nPriced * bw, gone = stale;
+    g.push('<rect x="' + (ux + 2) + '" y="' + (TOP + fs) + '" width="' + (W - R - ux - 4) + '" height="' + (y(lo) - TOP - fs - 4) +
+           '" fill="none" stroke="#000" stroke-width="1.5" stroke-dasharray="5 4" rx="6"/>');
+    g.push('<text x="' + ((ux + W - R) / 2) + '" y="' + (TOP + fs * 2.4) + '" text-anchor="middle">' +
+           (gone ? (W - R - ux > fs * 9 ? "Octopus unreachable" : "offline")
+                 : (W - R - ux > fs * 9 ? "next prices ~4pm" : "~4pm")) + '</text>');
+  }
+  if (HAS_FLEX)
+    g.push('<line x1="' + L + '" x2="' + (L + nPriced * bw) + '" y1="' + y(FLEX) + '" y2="' + y(FLEX) + '" stroke="#000" stroke-width="2" stroke-dasharray="8 5"/>');
+  g.push('<text x="' + (L + 2) + '" y="' + (TOP - fs * 0.45) + '">p/kWh</text>');
+
+  root.children[0].insertAdjacentHTML("afterend",
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" font-family="' + family + '" font-size="' + fs + '">' +
+    g.join("") + '</svg>');
+}
+</script>

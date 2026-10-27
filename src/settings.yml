@@ -1,0 +1,57 @@
+---
+strategy: polling
+no_screen_padding: 'no'
+dark_mode: 'no'
+static_data: ''
+polling_verb: get
+framework_version: 3.4.3
+serverless_language: ''
+refresh_interval_floor: ''
+polling_url: 'https://api.octopus.energy/v1/products/{{ product }}/electricity-tariffs/E-1R-{{ product }}-{{ region }}/standard-unit-rates/?page_size=100&period_from={{ "now" | date: "%Y-%m-%dT%H:%M:00%z" | url_encode }}'
+polling_headers: ''
+polling_body: ''
+id: 512180
+oauth_enabled: 'false'
+oauth_pkce_enabled: 'no'
+custom_fields:
+- keyname: about
+  field_type: author_bio
+  name: About this plugin
+  description: 'The next 24 hours of Octopus Agile (UK) half-hourly electricity prices: the price now vs your Flexible rate, the best 2 hours, the 2 hours to avoid, and the cheapest third of the day in black. Redraws every half-hour. Uses Octopus Energy''s public price API, so no account or API key is needed.'
+  category: life
+  email_address: ben@forgerelay.uk
+  github_url: https://github.com/benliong/trmnl-octopus-agile
+- keyname: region
+  field_type: select
+  name: Region
+  description: 'Your electricity region: the last letter of your tariff code (e.g. E-1R-AGILE-24-10-01-C is C, London). Shown in the Octopus app under your tariff.'
+  options:
+  - A – Eastern England: A
+  - B – East Midlands: B
+  - C – London: C
+  - D – Merseyside and North Wales: D
+  - E – West Midlands: E
+  - F – North East England: F
+  - G – North West England: G
+  - H – Southern England: H
+  - J – South East England: J
+  - K – South Wales: K
+  - L – South West England: L
+  - M – Yorkshire: M
+  - N – Southern Scotland: "N"
+  - P – Northern Scotland: P
+- keyname: product
+  field_type: string
+  name: Agile product code
+  description: The Agile version you're on. Only change this if Octopus releases a newer Agile product.
+  default: AGILE-24-10-01
+- keyname: flexible_price
+  field_type: number
+  name: Flexible unit rate to compare against (p/kWh inc VAT)
+  description: Draws a dashed comparison line and says whether now is above or below it. Set your region's Flexible Octopus unit rate; clear it to hide the line.
+  default: 26.88
+  step: 0.01
+  optional: true
+name: Octopus Agile 24h
+description: Next 24h of Octopus Agile prices
+refresh_interval: 15
