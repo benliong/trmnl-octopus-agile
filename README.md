@@ -21,13 +21,25 @@ at exact clock times, so the screen can lag by up to the device refresh interval
 
 | File | Paste into |
 |---|---|
-| `shared.liquid` | Markup → **Shared** tab (styles + `agileRender()`, used by every layout) |
+| `shared.liquid` | Markup → **Shared** tab (`agileRender()`, used by every layout) |
 | `full.liquid`, `half_horizontal.liquid`, `half_vertical.liquid`, `quadrant.liquid` | the matching markup tabs |
 | `form_fields.yml` | Settings → **Form Fields** (region A–P, Agile product code, Flexible rate) |
 | `icon.png` (from `icon.svg`) | Settings → **Icon** (TRMNL keeps PNG uploads; the SVG didn't stick) |
 
-The chart measures its container and scales its text, so the same markup fills a TRMNL OG
-(800×480), TRMNL X (1040×780 CSS px, drawn at 1872×1404) and portrait orientation.
+Styling is TRMNL Framework classes only, no custom CSS. The stat boxes are a Framework grid that
+stacks in portrait (`portrait:grid--cols-1`), and their text grows on TRMNL X (`lg:`) and in portrait.
+The chart is an SVG that fills whatever height is left and takes its font and size from the Framework's
+labels (TRMNL's pixel font on OG, Inter on X). The same markup fits a TRMNL OG (800×480),
+TRMNL X (1040×780 CSS px, drawn at 1872×1404) and portrait orientation on both.
+
+## When Octopus can't be reached
+
+Published Agile prices never change, so the screen keeps going on the last prices it fetched:
+the "Now" box, best/avoid and chart move on with the clock, and the footer says
+"Octopus offline since HH:MM" (anything beyond the old data is marked "Octopus unreachable").
+When the old data runs out, or a poll returns nothing, the screen says "Unable to reach Octopus servers".
+This relies on TRMNL drawing the screen with the last successful poll's data, which its docs don't spell out.
+If a failed poll leaves no data, you get the "Unable to reach" message instead.
 
 ## Set up from scratch (private plugin)
 
@@ -48,12 +60,14 @@ Private plugins need TRMNL's Developer add-on (or a BYOD licence).
 
 ```
 python preview.py                                   # all 4 layouts on an OG, now
-python preview.py --screen all                      # OG, TRMNL X, X portrait
+python preview.py --screen all                      # OG, OG portrait, TRMNL X, X portrait
 python preview.py --at 2026-10-19T10:15 --layout full  # a morning (tomorrow not yet published)
+python preview.py --at 2026-10-19T15:10 --fetched-at 2026-10-19T12:05  # Octopus offline since 12:05
+python preview.py --no-data                         # a poll that returned nothing
 ```
 
 Run from this folder after `pip install -r requirements.txt && playwright install chromium`.
-Writes `screenshots/trmnl-<screen>-<layout>[-HHMM].png` plus a 1-bit version approximating the panel.
+Writes `screenshots/trmnl-<screen>-<layout>[-HHMM][-polledHHMM][-nodata].png` plus a 1-bit version approximating the panel.
 
 ## Limits
 

@@ -1,5 +1,5 @@
 <div class="layout layout--col">
-  <div id="agile-q" class="agile" style="width: 100%;"></div>
+  <div id="agile-q" class="w--full"></div>
 </div>
 <div class="title_bar">
   <span class="title">Octopus Agile</span>
@@ -7,6 +7,6 @@
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  agileRender("agile-q", "agile-q-until", { W: 380, H: 128, stats: ["now", "best"], compact: true, legend: false, tick: 6 });
+  agileRender("agile-q", "agile-q-until", { W: 380, H: 128, stats: ["now", "best"], cols: "grid--cols-2 portrait:grid--cols-1", compact: true, legend: false, tick: 6 });
 });
 </script>
