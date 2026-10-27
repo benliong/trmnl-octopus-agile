@@ -11,7 +11,7 @@ region. It reads Octopus's public price API, so there's no Octopus account, API 
 
 ## What's on the screen
 
-| | |
+| On screen | What it means |
 |---|---|
 | **Now** (black box) | The current half-hour and its price in p/kWh inc VAT, and whether it's above or below your Flexible rate. |
 | **Best 2 hours** | The cheapest 2-hour stretch in the next 24 hours, with its average price. |
@@ -89,7 +89,7 @@ On a **TRMNL X** the text is larger, and in **portrait** the boxes stack above a
 
 ## Settings
 
-| Setting | |
+| Setting | What to enter |
 |---|---|
 | **Region** | The last letter of your tariff code, e.g. `E-1R-AGILE-24-10-01-C` is C (London). It's shown in the Octopus app under your tariff. |
 | **Agile product code** | `AGILE-24-10-01`. Only change it if Octopus launches a newer Agile product. |
